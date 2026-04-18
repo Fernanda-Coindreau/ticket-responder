@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket Responder</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body { background-color: #f4f4f4; display: flex; justify-content: center; padding: 40px 20px; }
+    .container { background-color: white; border-radius: 12px; padding: 40px; width: 100%; max-width: 780px; }
+    h1 { font-size: 24px; color: #1a1a1a; }
+    .subtitle { color: #888; font-size: 14px; margin-top: 4px; margin-bottom: 32px; }
+    .section { margin-bottom: 28px; }
+    label { display: block; font-size: 13px; font-weight: 500; color: #444; margin-bottom: 8px; }
+    input, textarea, select { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; font-size: 14px; color: #1a1a1a; }
+    .filters { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filters select { flex: 1; min-width: 140px; }
+    .btn-outline { background-color: white; color: #2563eb; border: 1px solid #2563eb; border-radius: 8px; padding: 12px 24px; font-size: 14px; cursor: pointer; width: 100%; margin-bottom: 12px; }
+    .btn-small { padding: 8px 14px; font-size: 13px; border-radius: 6px; cursor: pointer; border: none; margin-right: 8px; margin-top: 8px; }
+    .btn-claude { background-color: #2563eb; color: white; }
+    .btn-manual { background-color: white; color: #444; border: 1px solid #ddd; }
+    .btn-check { background-color: #16a34a; color: white; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; cursor: pointer; width: 100%; margin-top: 16px; }
+    .btn-disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+    .ticket-list { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+    .ticket-card { border: 1px solid #ddd; border-radius: 10px; padding: 16px; background: white; cursor: grab; }
+    .ticket-card.dragging { opacity: 0.4; }
+    .ticket-card.correct { border-color: #16a34a; background-color: #f0fdf4; }
+    .ticket-card.incorrect { border-color: #dc2626; background-color: #fef2f2; }
+    .ticket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .badge { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+    .badge-critical { background-color: #fee2e2; color: #dc2626; }
+    .badge-high { background-color: #ffedd5; color: #ea580c; }
+    .badge-medium { background-color: #fef9c3; color: #ca8a04; }
+    .badge-low { background-color: #dcfce7; color: #16a34a; }
+    .badge-type { background-color: #eff6ff; color: #2563eb; margin-right: 6px; }
+    .ticket-text { font-size: 14px; color: #333; margin-bottom: 12px; line-height: 1.5; }
+    .ticket-response { margin-top: 10px; }
+    .ticket-response textarea { height: 100px; resize: vertical; margin-bottom: 8px; }
+    .response-output { background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 8px; padding: 12px; font-size: 13px; color: #1a1a1a; line-height: 1.6; white-space: pre-wrap; margin-top: 8px; }
+    .timer-text { font-size: 12px; color: #888; margin-top: 6px; }
+    .score-box { background-color: #f0fdf4; border: 1px solid #16a34a; border-radius: 10px; padding: 16px; text-align: center; margin-top: 16px; font-size: 15px; color: #15803d; font-weight: 500; }
+    .score-box.wrong { background-color: #fef2f2; border-color: #dc2626; color: #dc2626; }
+    .feedback-box { background-color: #eff6ff; border: 1px solid #2563eb; border-radius: 8px; padding: 12px; font-size: 13px; color: #1e40af; line-height: 1.6; margin-top: 8px; }
+    .divider { border: none; border-top: 1px solid #eee; margin: 28px 0; }
+    .locked-notice { font-size: 13px; color: #dc2626; margin-top: 8px; display: none; }
+    .translating { color: #888; font-size: 13px; padding: 12px 0; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Ticket Responder</h1>
+  <p class="subtitle">Hospitality & Events Support</p>
+
+  <div class="section">
+    <label for="apiKey">Your API Key</label>
+    <input type="password" id="apiKey" placeholder="sk-ant-...">
+  </div>
+
+  <hr class="divider">
+
+  <div class="section">
+    <label>Generate tickets</label>
+    <div class="filters">
+      <select id="filterType">
+        <option value="random">Any type</option>
+        <option value="av">AV / Tech</option>
+        <option value="catering">Catering</option>
+        <option value="rooms">Rooms</option>
+        <option value="logistics">Logistics</option>
+        <option value="speakers">Speakers</option>
+      </select>
+      <select id="filterUrgency">
+        <option value="random">Any urgency</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <select id="filterLanguage">
+        <option value="English">English</option>
+        <option value="French">French</option>
+        <option value="Spanish">Spanish</option>
+      </select>
+      <select id="filterTone">
+        <option value="empathetic">Empathetic</option>
+        <option value="formal">Formal</option>
+        <option value="direct">Direct</option>
+      </select>
+    </div>
+    <button class="btn-outline" id="generateTicketsBtn">Generate tickets</button>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="ticketSection" style="display:none">
+    <label>Drag to order by priority — most critical at the top</label>
+    <div class="ticket-list" id="ticketList"></div>
+    <button class="btn-check" id="checkBtn">Check my order</button>
+    <div id="scoreBox"></div>
+    <p class="locked-notice" id="lockedNotice">Fix the order first before responding to tickets.</p>
+  </div>
+
+</div>
+<script>
+  const TICKETS = [
+    { type: "av", urgency: "critical", text: "The main stage screens went black 10 minutes before the opening ceremony. 500 guests are seated and waiting." },
+    { type: "av", urgency: "high", text: "The microphones in conference room B are producing loud feedback. The session starts in 20 minutes." },
+    { type: "av", urgency: "medium", text: "The livestream link we sent to remote attendees is not working. About 80 people are affected." },
+    { type: "av", urgency: "low", text: "The background music in the cocktail area is too loud. Several guests have complained." },
+    { type: "catering", urgency: "critical", text: "The catering truck has not arrived and the gala dinner for 300 people starts in 40 minutes." },
+    { type: "catering", urgency: "high", text: "A guest with a severe nut allergy was served a dish that may contain nuts. She is feeling unwell." },
+    { type: "catering", urgency: "medium", text: "We are running low on vegetarian options at the buffet. Around 30 guests are still in line." },
+    { type: "catering", urgency: "low", text: "The coffee station ran out of decaf. Three guests have asked about it." },
+    { type: "rooms", urgency: "critical", text: "The VIP suite reserved for our keynote speaker is still occupied by a previous guest. He arrives in 30 minutes." },
+    { type: "rooms", urgency: "high", text: "The air conditioning in the main ballroom is not working. It is 28 degrees and guests are uncomfortable." },
+    { type: "rooms", urgency: "medium", text: "Four guests say their room keycards stopped working after lunch. They cannot access their rooms." },
+    { type: "rooms", urgency: "low", text: "A guest is requesting extra pillows and a late checkout. Can we accommodate this?" },
+    { type: "logistics", urgency: "critical", text: "The event permits were not approved and security is asking us to stop the event immediately." },
+    { type: "logistics", urgency: "high", text: "The shuttle buses for airport transfers have not shown up. 25 guests need to catch flights in 2 hours." },
+    { type: "logistics", urgency: "medium", text: "The printed programs have a typo in the schedule. The afternoon sessions show the wrong room numbers." },
+    { type: "logistics", urgency: "low", text: "We need 10 more name badges printed for last-minute registrations." },
+    { type: "speakers", urgency: "critical", text: "Our keynote speaker just cancelled 2 hours before the opening session. 400 attendees are expecting her." },
+    { type: "speakers", urgency: "high", text: "The speaker for the 3pm panel has not checked in and is not answering his phone. Session starts in 45 minutes." },
+    { type: "speakers", urgency: "medium", text: "A speaker is requesting a last-minute change to her presentation slides. Can someone from AV assist her?" },
+    { type: "speakers", urgency: "low", text: "A speaker is asking if we can extend his session by 10 minutes. How should we handle this?" }
+  ];
+
+  const URGENCY_RANK = { critical: 4, high: 3, medium: 2, low: 1 };
+  let currentTickets = [];
+  let orderCorrect = false;
+  let dragSrc = null;
+
+  function shuffle(arr) {
+    return [...arr].sort(() => Math.random() - 0.5);
+  }
+
+  async function callClaude(apiKey, prompt, maxTokens = 1024) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-6',
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await res.json();
+    return data.content[0].text;
+  }
+
+  document.getElementById('generateTicketsBtn').addEventListener('click', async () => {
+    const type = document.getElementById('filterType').value;
+    const urgency = document.getElementById('filterUrgency').value;
+    const language = document.getElementById('filterLanguage').value;
+    const apiKey = document.getElementById('apiKey').value;
+
+    let pool = TICKETS.filter(t =>
+      (type === 'random' || t.type === type) &&
+      (urgency === 'random' || t.urgency === urgency)
+    );
+
+    if (pool.length < 3) {
+      alert('Not enough tickets match those filters. Try broader options.');
+      return;
+    }
+
+    const selected = shuffle(pool).slice(0, 5);
+    orderCorrect = false;
+    document.getElementById('scoreBox').innerHTML = '';
+    document.getElementById('lockedNotice').style.display = 'none';
+    document.getElementById('ticketSection').style.display = 'block';
+
+    if (language === 'English') {
+      currentTickets = selected;
+      renderTickets();
+      return;
+    }
+
+    if (!apiKey) {
+      alert('Please enter your API key to use translation.');
+      return;
+    }
+
+    document.getElementById('ticketList').innerHTML = '<p class="translating">Translating tickets...</p>';
+
+    try {
+      const raw = await callClaude(apiKey,
+        `Translate the "text" field of each ticket to ${language}. Do not translate "type" or "urgency". Return only a valid JSON array with no explanation, no markdown, no code fences.\n\n${JSON.stringify(selected)}`,
+        2048
+      );
+      const start = raw.indexOf('[');
+      const end = raw.lastIndexOf(']') + 1;
+      currentTickets = JSON.parse(raw.slice(start, end));
+    } catch (e) {
+      currentTickets = selected;
+    }
+    renderTickets();
+  });
+
+  function renderTickets() {
+    const list = document.getElementById('ticketList');
+    list.innerHTML = '';
+    currentTickets.forEach((ticket, index) => {
+      const card = document.createElement('div');
+      card.className = 'ticket-card';
+      card.draggable = true;
+      card.innerHTML = `
+        <div class="ticket-header">
+          <div>
+            <span class="badge badge-type">${ticket.type}</span>
+            <span class="badge badge-${ticket.urgency}">${ticket.urgency}</span>
+          </div>
+          <span style="font-size:12px;color:#aaa">drag to reorder</span>
+        </div>
+        <div class="ticket-text">${ticket.text}</div>
+        <div class="action-btns">
+          <button class="btn-small btn-claude btn-disabled" onclick="respondWithClaude(${index})">Respond with Claude</button>
+          <button class="btn-small btn-manual btn-disabled" onclick="showManual(${index})">Respond manually</button>
+        </div>
+        <div class="ticket-response" id="response-${index}"></div>
+      `;
+      card.addEventListener('dragstart', () => { dragSrc = card; card.classList.add('dragging'); });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      card.addEventListener('dragover', e => e.preventDefault());
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        if (dragSrc !== card) {
+          const all = [...list.querySelectorAll('.ticket-card')];
+          const si = all.indexOf(dragSrc);
+          const ti = all.indexOf(card);
+          const moved = currentTickets.splice(si, 1)[0];
+          currentTickets.splice(ti, 0, moved);
+          renderTickets();
+        }
+      });
+      list.appendChild(card);
+    });
+  }
+
+  document.getElementById('checkBtn').addEventListener('click', () => {
+    const cards = [...document.querySelectorAll('.ticket-card')];
+    const sorted = [...currentTickets].sort((a, b) => URGENCY_RANK[b.urgency] - URGENCY_RANK[a.urgency]);
+    let correct = 0;
+    currentTickets.forEach((ticket, i) => {
+      cards[i].classList.remove('correct', 'incorrect');
+      if (ticket.urgency === sorted[i].urgency) { cards[i].classList.add('correct'); correct++; }
+      else cards[i].classList.add('incorrect');
+    });
+    const total = currentTickets.length;
+    const scoreBox = document.getElementById('scoreBox');
+    const notice = document.getElementById('lockedNotice');
+    if (correct === total) {
+      orderCorrect = true;
+      document.querySelectorAll('.action-btns .btn-disabled').forEach(b => b.classList.remove('btn-disabled'));
+      notice.style.display = 'none';
+      scoreBox.innerHTML = '<div class="score-box">Perfect order! You can now respond to the tickets.</div>';
+    } else {
+      orderCorrect = false;
+      document.querySelectorAll('.action-btns button').forEach(b => b.classList.add('btn-disabled'));
+      notice.style.display = 'block';
+      scoreBox.innerHTML = `<div class="score-box wrong">You got ${correct} out of ${total} correct. Fix the red ones and try again.</div>`;
+    }
+  });
+
+  function showManual(index) {
+    if (!orderCorrect) { document.getElementById('lockedNotice').style.display = 'block'; return; }
+    document.getElementById(`response-${index}`).innerHTML = `
+      <textarea placeholder="Write your response here..."></textarea>
+      <button class="btn-small btn-claude" onclick="saveAndGrade(${index})">Save and get feedback</button>
+    `;
+  }
+
+  async function saveAndGrade(index) {
+    const apiKey = document.getElementById('apiKey').value;
+    if (!apiKey) { alert('Please enter your API key first.'); return; }
+    const responseDiv = document.getElementById(`response-${index}`);
+    const text = responseDiv.querySelector('textarea').value;
+    if (!text) return;
+    const ticket = currentTickets[index];
+    const language = document.getElementById('filterLanguage').value;
+    responseDiv.innerHTML = '<div class="timer-text">Grading your response...</div>';
+    try {
+      const result = await callClaude(apiKey,
+        `You are a hospitality support trainer. Grade this agent response to a customer ticket. Give a score out of 10 and one short suggestion for improvement. Be direct and specific. No em dashes. Write like a real human coach. Reply in ${language}.\n\nTicket: ${ticket.text}\n\nAgent response: ${text}\n\nFormat exactly like this:\nScore: X/10\nFeedback: [your suggestion]`,
+        512
+      );
+      responseDiv.innerHTML = `<div class="response-output">${text}</div><div class="feedback-box">${result}</div>`;
+    } catch (e) {
+      responseDiv.innerHTML = `<div class="response-output">${text}</div><div class="timer-text">Could not get feedback. Check your API key.</div>`;
+    }
+  }
+
+  async function respondWithClaude(index) {
+    if (!orderCorrect) { document.getElementById('lockedNotice').style.display = 'block'; return; }
+    const apiKey = document.getElementById('apiKey').value;
+    if (!apiKey) { alert('Please enter your API key first.'); return; }
+    const ticket = currentTickets[index];
+    const language = document.getElementById('filterLanguage').value;
+    const tone = document.getElementById('filterTone').value;
+    const responseDiv = document.getElementById(`response-${index}`);
+    responseDiv.innerHTML = '<div class="timer-text">Generating...</div>';
+    const start = Date.now();
+    try {
+      const result = await callClaude(apiKey,
+        `You are a professional support agent for a hospitality tech and events company. Write a response to this customer ticket in ${language}. Use a ${tone} tone. Write like a real human, natural conversational sentences, no em dashes, no bullet points, no stiff language.\n\nTicket: ${ticket.text}`
+      );
+      const seconds = ((Date.now() - start) / 1000).toFixed(1);
+      responseDiv.innerHTML = `<div class="response-output">${result}</div><div class="timer-text">Responded in ${seconds} seconds</div>`;
+    } catch (e) {
+      responseDiv.innerHTML = '<div class="timer-text">Something went wrong. Check your API key.</div>';
+    }
+  }
+</script>
+</body>
+</html>
