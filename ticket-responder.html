@@ -47,6 +47,9 @@
   </style>
 </head>
 <body>
+
+<a href="https://fernanda-coindreau.github.io/" target="_self" style="position:fixed;top:16px;left:16px;z-index:9999;background:rgba(0,0,0,0.75);color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:20px;font-size:13px;font-family:sans-serif;font-weight:500;backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,0.15);">← Portfolio</a>
+
 <div class="container">
 
   <h1>Ticket Responder</h1>
@@ -145,7 +148,7 @@
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5-20251001',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         messages: [{ role: 'user', content: prompt }]
       })
@@ -160,34 +163,26 @@
     const language = document.getElementById('filterLanguage').value;
     const apiKey = document.getElementById('apiKey').value;
 
-    // Filter by type only first
     let pool = TICKETS.filter(t => type === 'random' || t.type === type);
 
-    // If a specific urgency is selected, ensure at least one ticket of that urgency is included
-    // but fill the rest from the broader pool to always get 5 tickets
     let selected;
     if (urgency !== 'random') {
       const mustHave = pool.filter(t => t.urgency === urgency);
       const rest = shuffle(pool.filter(t => t.urgency !== urgency));
       const combined = [...shuffle(mustHave), ...rest];
-      // If no tickets match this type+urgency combo, fall back to full TICKETS list
       if (combined.length === 0) {
         selected = shuffle(TICKETS).slice(0, 5);
       } else {
-        // Fill up to 5 from full pool if needed
         const extras = shuffle(TICKETS.filter(t => !combined.includes(t)));
         selected = [...combined, ...extras].slice(0, 5);
       }
     } else {
-      // No urgency filter — just pick 5 with varied urgencies
       const urgencies = ['critical', 'high', 'medium', 'low'];
       selected = [];
-      // Pick one of each urgency from the pool if possible
       urgencies.forEach(u => {
         const match = pool.filter(t => t.urgency === u && !selected.includes(t));
         if (match.length > 0) selected.push(shuffle(match)[0]);
       });
-      // If we have less than 5, fill with random from full TICKETS
       if (selected.length < 5) {
         const extras = shuffle(TICKETS.filter(t => !selected.includes(t)));
         selected = [...selected, ...extras].slice(0, 5);
